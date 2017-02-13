@@ -153,6 +153,10 @@ impl Read for 字读 {
             i >>= self.bits;
 
             loop {
+                if count >= buf.len() {
+                    return Ok(count);
+                }
+
                 let min_left = min(CHAR_BITS - self.bits, BYTE_BITS - byte_bits);
 
                 let ii = i & ((1 << min_left) - 1);
@@ -164,9 +168,6 @@ impl Read for 字读 {
                 if byte_bits >= BYTE_BITS {
                     count += 1;
                     byte_bits -= BYTE_BITS;
-                }
-                if count >= buf.len() {
-                    return Ok(count);
                 }
                 if self.bits >= CHAR_BITS {
                     self.bits -= CHAR_BITS;
@@ -193,63 +194,4 @@ pub fn decode(input: &str, output: &mut [u8]) -> io::Result<()> {
     let mut r = 字读::from(input);
     r.read(output)?;
     Ok(())
-}
-
-#[test]
-fn test_one_write_read() {
-    let input = b"chinese char!";
-
-    let mut w = 字写::new();
-    w.write(input).unwrap();
-    w.flush().unwrap();
-
-    let mut r = 字读::from(w.into_string());
-    let mut output = vec![0; input.len()];
-    r.read(&mut output).unwrap();
-    assert_eq!(output, input);
-}
-
-#[test]
-fn test_two_write() {
-    let input = b"oh my chinese char!";
-
-    let mut w = 字写::new();
-    w.write(&input[..5]).unwrap();
-    w.write(&input[5..]).unwrap();
-    w.flush().unwrap();
-
-    let mut r = 字读::from(w.into_string());
-    let mut output = vec![0; input.len()];
-    r.read(&mut output).unwrap();
-    assert_eq!(output, input);
-}
-
-#[test]
-fn test_two_read() {
-    let input = b"oh my chinese char!";
-
-    let mut w = 字写::new();
-    w.write(input).unwrap();
-    w.flush().unwrap();
-
-    let mut r = 字读::from(w.into_string());
-    let mut output = vec![0; input.len()];
-    r.read(&mut output[..5]).unwrap();
-    r.read(&mut output[5..]).unwrap();
-    assert_eq!(output, input);
-}
-
-#[test]
-fn test_full() {
-    let input = [255; 11];
-
-    let mut w = 字写::new();
-    w.write(&input).unwrap();
-    w.flush().unwrap();
-
-    let mut r = 字读::from(w.into_string());
-    let mut output = Vec::new();
-    r.read_to_end(&mut output).unwrap();
-    assert_eq!(output[..input.len()], input);
-    assert_ne!(output, input); // FIXME zero bit
 }
