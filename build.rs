@@ -6,8 +6,9 @@ use std::io::Write;
 fn main() {
     writeln!(
         File::create(Path::new(&env::var("OUT_DIR").unwrap()).join("table.rs")).unwrap(),
-        "const CHINESE_WORD_TABLE: &[char] = &{:?};",
-        include_str!("chinese-chars.txt").lines()
+        "const CHINESE_CHAR_TABLE: &[char] = &{:?};",
+        include_str!("chinese-chars.txt")
+            .lines()
             .filter_map(|line| if line.is_empty() || line.starts_with("//") {
                 None
             } else {

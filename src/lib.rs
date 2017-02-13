@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/table.rs"));
 
 lazy_static! {
     static ref INV_CHINESE_WORD_MAP: HashMap<char, u16> = {
-        CHINESE_WORD_TABLE // XXX: maybe const ?
+        CHINESE_CHAR_TABLE // XXX: maybe const ?
             .iter()
             .take(1 << CHAR_BITS)
             .enumerate()
@@ -28,8 +28,8 @@ const BYTE_BITS: usize = 8;
 /// use hanzi4096::ZiWrite;
 ///
 /// let mut w = ZiWrite::new();
-/// write!(w, "hello 汉字!").unwrap();
-/// assert_eq!(w.into_string(), "拴娃迤交杀萝尻淳");
+/// write!(w, "Hello 汉字!").unwrap();
+/// assert_eq!(w.into_string(), "贰娃迤交杀萝尻淳");
 /// ```
 #[derive(Debug, Clone)]
 pub struct 字写 {
@@ -104,7 +104,7 @@ impl Write for 字写 {
 
     fn flush(&mut self) -> io::Result<()> {
         if self.bits > 0 {
-            self.buff.push(CHINESE_WORD_TABLE[self.char_buf as usize]);
+            self.buff.push(CHINESE_CHAR_TABLE[self.char_buf as usize]);
             self.char_buf = 0;
             self.bits = self.bits.checked_sub(CHAR_BITS).unwrap_or(0);
         }
@@ -155,10 +155,7 @@ impl Read for 字读 {
 
         for c in self.buff.chars().skip(self.cursor) {
             let mut i = *INV_CHINESE_WORD_MAP.get(&c)
-                .ok_or_else(|| io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    c.to_string()
-                ))?;
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, c.to_string()))?;
             i >>= self.bits;
 
             loop {
@@ -202,8 +199,9 @@ pub fn encode(input: &[u8]) -> String {
 }
 
 #[inline]
-pub fn decode(input: &str, output: &mut [u8]) -> io::Result<()> {
+pub fn decode(input: &str) -> io::Result<Vec<u8>> {
     let mut r = 字读::from(input);
-    r.read(output)?;
-    Ok(())
+    let mut output = Vec::with_capacity(input.chars().count() * CHAR_BITS / 8);
+    r.read_to_end(&mut output)?;
+    Ok(output)
 }
