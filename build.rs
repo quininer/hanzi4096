@@ -7,6 +7,14 @@ fn main() {
     writeln!(
         File::create(Path::new(&env::var("OUT_DIR").unwrap()).join("table.rs")).unwrap(),
         "const CHINESE_WORD_TABLE: &[char] = &{:?};",
-        include_str!("chinese-words-2500.txt").chars().collect::<Vec<char>>()
+        include_str!("chinese-chars.txt").lines()
+            .filter_map(|line| if line.is_empty() || line.starts_with("//") {
+                None
+            } else {
+                line.split_whitespace()
+                    .last()
+                    .and_then(|c| c.chars().last())
+            })
+            .collect::<Vec<char>>()
     ).unwrap();
 }

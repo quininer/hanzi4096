@@ -19,10 +19,18 @@ lazy_static! {
     };
 }
 
-pub const CHAR_BITS: usize = 11;
+pub const CHAR_BITS: usize = 12;
 const BYTE_BITS: usize = 8;
 
 
+/// ```
+/// use std::io::Write;
+/// use hanzi4096::ZiWrite;
+///
+/// let mut w = ZiWrite::new();
+/// write!(w, "hello 汉字!").unwrap();
+/// assert_eq!(w.into_string(), "拴娃迤交杀萝尻淳");
+/// ```
 #[derive(Debug, Clone)]
 pub struct 字写 {
     buff: String,
@@ -43,6 +51,11 @@ impl Default for 字写 {
 }
 
 impl 字写 {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.buff
@@ -91,6 +104,16 @@ impl Write for 字写 {
     }
 }
 
+
+/// ```
+/// use std::io::Read;
+/// use hanzi4096::ZiRead;
+///
+/// let mut r = ZiRead::from("桃之夭夭灼灼其华");
+/// let mut output = [0; 12];
+/// r.read(&mut output).unwrap();
+/// assert_eq!(output, [51, 151, 3, 125, 208, 7, 84, 67, 53, 227, 115, 29]);
+/// ```
 #[derive(Debug, Clone)]
 pub struct 字读 {
     buff: String,
@@ -99,6 +122,12 @@ pub struct 字读 {
 }
 
 pub type ZiRead = 字读;
+
+impl<'a> From<&'a str> for 字读 {
+    fn from(s: &str) -> Self {
+        Self::from(s.to_string())
+    }
+}
 
 impl From<String> for 字读 {
     fn from(s: String) -> Self {
@@ -151,11 +180,26 @@ impl Read for 字读 {
     }
 }
 
+#[inline]
+pub fn encode(input: &[u8]) -> String {
+    let mut w = 字写::new();
+    w.write(input).expect("unreachable");
+    w.flush().expect("unreachable");
+    w.into_string()
+}
+
+#[inline]
+pub fn decode(input: &str, output: &mut [u8]) -> io::Result<()> {
+    let mut r = 字读::from(input);
+    r.read(output)?;
+    Ok(())
+}
+
 #[test]
 fn test_one_write_read() {
     let input = b"chinese char!";
 
-    let mut w = 字写::default();
+    let mut w = 字写::new();
     w.write(input).unwrap();
     w.flush().unwrap();
 
@@ -169,7 +213,7 @@ fn test_one_write_read() {
 fn test_two_write() {
     let input = b"oh my chinese char!";
 
-    let mut w = 字写::default();
+    let mut w = 字写::new();
     w.write(&input[..5]).unwrap();
     w.write(&input[5..]).unwrap();
     w.flush().unwrap();
@@ -184,7 +228,7 @@ fn test_two_write() {
 fn test_two_read() {
     let input = b"oh my chinese char!";
 
-    let mut w = 字写::default();
+    let mut w = 字写::new();
     w.write(input).unwrap();
     w.flush().unwrap();
 
@@ -193,4 +237,19 @@ fn test_two_read() {
     r.read(&mut output[..5]).unwrap();
     r.read(&mut output[5..]).unwrap();
     assert_eq!(output, input);
+}
+
+#[test]
+fn test_full() {
+    let input = [255; 11];
+
+    let mut w = 字写::new();
+    w.write(&input).unwrap();
+    w.flush().unwrap();
+
+    let mut r = 字读::from(w.into_string());
+    let mut output = Vec::new();
+    r.read_to_end(&mut output).unwrap();
+    assert_eq!(output[..input.len()], input);
+    assert_ne!(output, input); // FIXME zero bit
 }
