@@ -1,0 +1,8 @@
+[package]
+name = "hanzi2048"
+version = "0.1.0"
+authors = ["quininer kel <quininer@live.com>"]
+build = "build.rs"
+
+[dependencies]
+lazy_static = "*"
