@@ -57,6 +57,15 @@ impl 字写 {
     }
 
     #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            buff: String::with_capacity(capacity),
+            char_buf: 0,
+            bits: 0
+        }
+    }
+
+    #[inline]
     pub fn as_str(&self) -> &str {
         &self.buff
     }
@@ -183,7 +192,10 @@ impl Read for 字读 {
 
 #[inline]
 pub fn encode(input: &[u8]) -> String {
-    let mut w = 字写::new();
+    let mut w = 字写::with_capacity(
+        (input.len() as f64 * BYTE_BITS as f64 / CHAR_BITS as f64).ceil() as usize
+        * 3
+    );
     w.write(input).expect("unreachable");
     w.flush().expect("unreachable");
     w.into_string()
