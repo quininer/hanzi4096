@@ -8,4 +8,5 @@ build = "build.rs"
 lazy_static = "0.2"
 
 [dev-dependencies]
-quickcheck = "*"
+clap = "2.20"
+quickcheck = "0.4"
