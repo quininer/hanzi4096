@@ -16,6 +16,14 @@ lazy_static! {
             .map(|(i, &c)| (c, i as u16))
             .collect()
     };
+
+    static ref INV_END_CHINESE_CHAR_TABLE: HashMap<char, u16> = {
+        END_CHINESE_CHAR_TABLE
+            .iter()
+            .enumerate()
+            .map(|(i, &c)| (c, i as u16))
+            .collect()
+    };
 }
 
 pub const CHAR_BITS: usize = 12;
@@ -103,9 +111,13 @@ impl Write for 字写 {
 
     fn flush(&mut self) -> io::Result<()> {
         if self.bits > 0 {
-            self.buff.push(CHINESE_CHAR_TABLE[self.char_buf as usize]);
+            self.buff.push(if self.bits < 12 {
+                END_CHINESE_CHAR_TABLE[self.char_buf as usize]
+            } else {
+                CHINESE_CHAR_TABLE[self.char_buf as usize]
+            });
             self.char_buf = 0;
-            self.bits = self.bits.checked_sub(CHAR_BITS).unwrap_or(0);
+            self.bits = 0;
         }
 
         Ok(())
@@ -190,16 +202,23 @@ impl Read for 字读 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut count = 0;
         let mut byte_bits = 0;
+        let mut end = false;
 
         for c in self.buff.chars().skip(self.cursor) {
             let mut b = match INV_CHINESE_WORD_MAP.get(&c) {
                 Some(&b) => b,
-                None => {
-                    self.cursor += 1;
-                    if self.ignore_flag {
-                        continue;
-                    } else {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, c.to_string()));
+                None => match INV_END_CHINESE_CHAR_TABLE.get(&c) {
+                    Some(&b) => {
+                        end = true;
+                        b
+                    },
+                    None => {
+                        self.cursor += 1;
+                        if self.ignore_flag {
+                            continue;
+                        } else {
+                            return Err(io::Error::new(io::ErrorKind::InvalidData, c.to_string()));
+                        }
                     }
                 }
             };
@@ -218,6 +237,10 @@ impl Read for 字读 {
                 self.bits += min_left;
                 byte_bits += min_left;
 
+                if end {
+                    self.bits = CHAR_BITS;
+                    byte_bits = BYTE_BITS;
+                }
                 if byte_bits >= BYTE_BITS {
                     count += 1;
                     byte_bits -= BYTE_BITS;
