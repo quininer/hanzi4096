@@ -12,7 +12,6 @@ lazy_static! {
     static ref INV_CHINESE_WORD_MAP: HashMap<char, u16> = {
         CHINESE_CHAR_TABLE // XXX: maybe const ?
             .iter()
-            .take(1 << CHAR_BITS)
             .enumerate()
             .map(|(i, &c)| (c, i as u16))
             .collect()
@@ -118,16 +117,22 @@ impl Write for 字写 {
 /// use std::io::Read;
 /// use hanzi4096::ZiRead;
 ///
-/// let mut r = ZiRead::from("桃之夭夭灼灼其华");
-/// let mut output = [0; 12];
+/// let mut r = ZiRead::from(
+///     "桃之夭夭灼灼其华之子于归宜其室家"
+/// );
+/// let mut output = [0; 24];
 /// r.read(&mut output).unwrap();
-/// assert_eq!(output, [51, 151, 3, 125, 208, 7, 84, 67, 53, 227, 115, 29]);
+/// assert_eq!(
+///     output,
+///     [51, 151, 3, 125, 208, 7, 84, 67, 53, 227, 115, 29, 57, 240, 3, 23, 144, 14, 253, 52, 62, 160, 38, 131]
+/// );
 /// ```
 #[derive(Debug, Clone)]
 pub struct 字读 {
     buff: String,
     cursor: usize,
-    bits: usize
+    bits: usize,
+    ignore_flag: bool
 }
 
 pub type ZiRead = 字读;
@@ -143,8 +148,41 @@ impl From<String> for 字读 {
         Self {
             buff: s,
             cursor: 0,
-            bits: 0
+            bits: 0,
+            ignore_flag: false
         }
+    }
+}
+
+impl 字读 {
+    /// Ignore invalid char.
+    ///
+    /// ```
+    /// use std::io::Read;
+    /// use hanzi4096::{ self, ZiRead };
+    ///
+    /// let text = "
+    ///     南有乔木 不可休息
+    ///     汉有游女 不可求思
+    ///     汉之广矣 不可泳思
+    ///     江之永矣 不可方思
+    /// ";
+    ///
+    /// let mut r = ZiRead::from(text);
+    /// let mut output = Vec::new();
+    /// r.with_ignore(true);
+    /// r.read_to_end(&mut output).unwrap();
+    ///
+    /// assert_eq!(
+    ///     hanzi4096::encode(&output),
+    ///     text.lines()
+    ///         .flat_map(|line| line.split_whitespace())
+    ///         .collect::<String>()
+    /// );
+    /// ```
+    pub fn with_ignore(&mut self, flag: bool) -> &mut Self {
+        self.ignore_flag = flag;
+        self
     }
 }
 
@@ -154,9 +192,18 @@ impl Read for 字读 {
         let mut byte_bits = 0;
 
         for c in self.buff.chars().skip(self.cursor) {
-            let mut i = *INV_CHINESE_WORD_MAP.get(&c)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, c.to_string()))?;
-            i >>= self.bits;
+            let mut b = match INV_CHINESE_WORD_MAP.get(&c) {
+                Some(&b) => b,
+                None => {
+                    self.cursor += 1;
+                    if self.ignore_flag {
+                        continue;
+                    } else {
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, c.to_string()));
+                    }
+                }
+            };
+            b >>= self.bits;
 
             loop {
                 if count >= buf.len() {
@@ -165,9 +212,9 @@ impl Read for 字读 {
 
                 let min_left = min(CHAR_BITS - self.bits, BYTE_BITS - byte_bits);
 
-                let ii = i & ((1 << min_left) - 1);
-                buf[count] |= (ii as u8) << byte_bits;
-                i >>= min_left;
+                let bb = b & ((1 << min_left) - 1);
+                buf[count] |= (bb as u8) << byte_bits;
+                b >>= min_left;
                 self.bits += min_left;
                 byte_bits += min_left;
 

@@ -14,8 +14,9 @@ fn main() {
             } else {
                 line.split_whitespace()
                     .last()
-                    .and_then(|c| c.chars().last())
+                    .and_then(|c| c.chars().next())
             })
+            .take(1 << 12)
             .collect::<Vec<char>>()
     ).unwrap();
 }
