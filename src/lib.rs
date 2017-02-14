@@ -205,21 +205,17 @@ impl Read for 字读 {
         let mut end = false;
 
         for c in self.buff.chars().skip(self.cursor) {
-            let mut b = match INV_CHINESE_WORD_MAP.get(&c) {
-                Some(&b) => b,
-                None => match INV_END_CHINESE_CHAR_TABLE.get(&c) {
-                    Some(&b) => {
-                        end = true;
-                        b
-                    },
-                    None => {
-                        self.cursor += 1;
-                        if self.ignore_flag {
-                            continue;
-                        } else {
-                            return Err(io::Error::new(io::ErrorKind::InvalidData, c.to_string()));
-                        }
-                    }
+            let mut b = if let Some(&b) = INV_CHINESE_WORD_MAP.get(&c) {
+                b
+            } else if let Some(&b) = INV_END_CHINESE_CHAR_TABLE.get(&c) {
+                end = true;
+                b
+            } else {
+                self.cursor += 1;
+                if self.ignore_flag {
+                    continue;
+                } else {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, c.to_string()));
                 }
             };
             b >>= self.bits;
@@ -271,7 +267,7 @@ pub fn encode(input: &[u8]) -> String {
 #[inline]
 pub fn decode(input: &str) -> io::Result<Vec<u8>> {
     let mut r = 字读::from(input);
-    let mut output = Vec::with_capacity(input.chars().count() * CHAR_BITS / 8);
+    let mut output = Vec::with_capacity(input.chars().count() * CHAR_BITS / BYTE_BITS);
     r.read_to_end(&mut output)?;
     Ok(output)
 }
