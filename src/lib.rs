@@ -36,7 +36,8 @@ const BYTE_BITS: usize = 8;
 ///
 /// let mut w = ZiWrite::new();
 /// write!(w, "Hello 汉字!").unwrap();
-/// assert_eq!(w.into_string(), "贰娃迤交杀萝尻淳");
+/// w.flush().unwrap();
+/// assert_eq!(w.into_string(), "贰娃迤交杀萝尻淳荥");
 /// ```
 #[derive(Debug, Clone)]
 pub struct 字写 {
@@ -253,6 +254,12 @@ impl Read for 字读 {
     }
 }
 
+/// ```
+/// assert_eq!(
+///     hanzi4096::encode("Hello 汉字!".as_bytes()),
+///     "贰娃迤交杀萝尻淳荥"
+/// );
+/// ```
 #[inline]
 pub fn encode(input: &[u8]) -> String {
     let mut w = 字写::with_capacity(
@@ -264,10 +271,36 @@ pub fn encode(input: &[u8]) -> String {
     w.into_string()
 }
 
+/// ```
+/// assert_eq!(
+///     hanzi4096::decode("桃之夭夭灼灼其华之子于归宜其室家").unwrap(),
+///     [51, 151, 3, 125, 208, 7, 84, 67, 53, 227, 115, 29, 57, 240, 3, 23, 144, 14, 253, 52, 62, 160, 38, 131]
+/// );
+/// ```
 #[inline]
 pub fn decode(input: &str) -> io::Result<Vec<u8>> {
-    let mut r = 字读::from(input);
     let mut output = Vec::with_capacity(input.chars().count() * CHAR_BITS / BYTE_BITS);
-    r.read_to_end(&mut output)?;
+    字读::from(input)
+        .read_to_end(&mut output)?;
     Ok(output)
+}
+
+/// ```
+/// assert_eq!(
+///     hanzi4096::decode_ignore("
+///         南有乔木 不可休息
+///         汉有游女 不可求思
+///         汉之广矣 不可泳思
+///         江之永矣 不可方思
+///     "),
+///     vec![141, 85, 24, 195, 97, 5, 90, 48, 13, 201, 65, 123, 54, 81, 24, 205, 42, 4, 90, 48, 13, 177, 178, 93, 54, 145, 3, 52, 224, 57, 90, 48, 13, 232, 180, 93, 25, 146, 3, 67, 225, 57, 90, 48, 13, 162, 176, 93]
+/// );
+/// ```
+#[inline]
+pub fn decode_ignore(input: &str) -> Vec<u8> {
+    let mut output = Vec::new();
+    字读::from(input)
+        .with_ignore(true)
+        .read_to_end(&mut output).expect("unreachable");
+    output
 }
