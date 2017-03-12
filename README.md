@@ -1,6 +1,6 @@
 # 汉字4096
 
-This library encodes bytes into 12-bit 汉字 (although it actually uses 13-bits).
+This library encodes bytes into 12-bit 汉字 (although it actually uses 6144).
 
 ### Exmaple
 

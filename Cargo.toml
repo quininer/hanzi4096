@@ -8,7 +8,10 @@ license = "MIT"
 build = "build.rs"
 
 [dependencies]
-lazy_static = "0.2"
+phf = "0.7"
+
+[build-dependencies]
+phf_codegen = "0.7"
 
 [dev-dependencies]
 clap = "2.20"

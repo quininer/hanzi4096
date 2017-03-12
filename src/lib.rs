@@ -1,30 +1,11 @@
-#![feature(non_ascii_idents, static_in_const, more_struct_aliases)]
+#![feature(non_ascii_idents)]
 
-#[macro_use] extern crate lazy_static;
+extern crate phf;
 
 use std::io::{ self, Write, Read };
 use std::cmp::min;
-use std::collections::HashMap;
 
 include!(concat!(env!("OUT_DIR"), "/table.rs"));
-
-lazy_static! {
-    static ref INV_CHINESE_WORD_MAP: HashMap<char, u16> = {
-        CHINESE_CHAR_TABLE // XXX: maybe const ?
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| (c, i as u16))
-            .collect()
-    };
-
-    static ref INV_END_CHINESE_CHAR_TABLE: HashMap<char, u16> = {
-        END_CHINESE_CHAR_TABLE
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| (c, i as u16))
-            .collect()
-    };
-}
 
 pub const CHAR_BITS: usize = 12;
 const BYTE_BITS: usize = 8;
@@ -112,7 +93,7 @@ impl Write for 字写 {
 
     fn flush(&mut self) -> io::Result<()> {
         if self.bits > 0 {
-            self.buff.push(if self.bits < 12 {
+            self.buff.push(if self.bits < CHAR_BITS {
                 END_CHINESE_CHAR_TABLE[self.char_buf as usize]
             } else {
                 CHINESE_CHAR_TABLE[self.char_buf as usize]
@@ -206,7 +187,7 @@ impl Read for 字读 {
         let mut end = false;
 
         for c in self.buff.chars().skip(self.cursor) {
-            let mut b = if let Some(&b) = INV_CHINESE_WORD_MAP.get(&c) {
+            let mut b = if let Some(&b) = INV_CHINESE_CHAR_MAP.get(&c) {
                 b
             } else if let Some(&b) = INV_END_CHINESE_CHAR_TABLE.get(&c) {
                 end = true;
